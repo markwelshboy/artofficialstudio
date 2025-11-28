@@ -5,22 +5,56 @@ set -e  # Exit the script if any statement returns a non-true return value
 #                          Function Definitions                                #
 # ---------------------------------------------------------------------------- #
 
+# ---------------------------------------------------------------------------- #
+#                      Runtime cache / HF configuration                        #
+# ---------------------------------------------------------------------------- #
+
+configure_caches() {
+    local root="${HF_ROOT:-/workspace/.cache}"
+
+    export HF_HOME="${HF_HOME:-${root}/huggingface}"
+    export HF_DATASETS_CACHE="${HF_DATASETS_CACHE:-${HF_HOME}/datasets}"
+    export DEFAULT_HF_METRICS_CACHE="${DEFAULT_HF_METRICS_CACHE:-${HF_HOME}/metrics}"
+    export DEFAULT_HF_MODULES_CACHE="${DEFAULT_HF_MODULES_CACHE:-${HF_HOME}/modules}"
+    export HUGGINGFACE_HUB_CACHE="${HUGGINGFACE_HUB_CACHE:-${HF_HOME}/hub}"
+    export HUGGINGFACE_ASSETS_CACHE="${HUGGINGFACE_ASSETS_CACHE:-${HF_HOME}/assets}"
+
+    export HF_HUB_ENABLE_HF_TRANSFER="${HF_HUB_ENABLE_HF_TRANSFER:-1}"
+
+    export VIRTUALENV_OVERRIDE_APP_DATA="${VIRTUALENV_OVERRIDE_APP_DATA:-${root}/virtualenv}"
+    export PIP_CACHE_DIR="${PIP_CACHE_DIR:-${root}/pip}"
+    export UV_CACHE_DIR="${UV_CACHE_DIR:-${root}/uv}"
+
+    mkdir -p \
+        "$HF_HOME" \
+        "$HF_DATASETS_CACHE" \
+        "$DEFAULT_HF_METRICS_CACHE" \
+        "$DEFAULT_HF_MODULES_CACHE" \
+        "$HUGGINGFACE_HUB_CACHE" \
+        "$HUGGINGFACE_ASSETS_CACHE" \
+        "$VIRTUALENV_OVERRIDE_APP_DATA" \
+        "$PIP_CACHE_DIR" \
+        "$UV_CACHE_DIR"
+}
+
 # Start nginx service
 start_nginx() {
     echo "Starting Nginx service..."
 
-    if [ -z "$RUNPOD_POD_ID" ]; then
-        echo "RUNPOD not detected, removing /etc/nginx/sites-available/default"
+    # If both are empty -> NOT running on RunPod or Vast
+    if [[ -z "${RUNPOD_POD_ID:-}" && -z "${VAST_CONTAINERLABEL:-}" ]]; then
+        echo "GPU POD (Runpod or Vast) not detected, removing /etc/nginx/sites-available/default"
         rm -f /etc/nginx/sites-available/default
-        if [ -f /etc/nginx/sites-available/local ]; then
+        if [[ -f /etc/nginx/sites-available/local ]]; then
             echo "Renaming /etc/nginx/sites-available/local to default"
             mv /etc/nginx/sites-available/local /etc/nginx/sites-available/default
             ln -sf /etc/nginx/sites-available/default /etc/nginx/sites-enabled/default
         fi
     else
-        echo "RUNPOD detected, removing /etc/nginx/sites-available/local"
+        echo "GPU POD (Runpod or Vast) detected, removing /etc/nginx/sites-available/local"
         rm -f /etc/nginx/sites-available/local
     fi
+
     service nginx start
 }
 
@@ -76,11 +110,25 @@ setup_ssh() {
     fi
 }
 
-# Export env vars
 export_env_vars() {
     echo "Exporting environment variables..."
-    printenv | grep -E '^RUNPOD_|^PATH=|^_=' | awk -F = '{ print "export " $1 "=\"" $2 "\"" }' >> /etc/rp_environment
-    echo 'source /etc/rp_environment' >> ~/.bashrc
+
+    local outfile="/etc/pod_environment"
+    : > "$outfile"
+
+    # Keep interesting pod-related vars:
+    #  - VAST_* / RUNPOD_*
+    #  - HF_* and cache-related vars
+    #  - ports for all the UIs
+    #  - PATH for convenience
+    printenv | grep -E '^(VAST_|RUNPOD_|HF_|PIP_CACHE_DIR=|UV_CACHE_DIR=|VIRTUALENV_OVERRIDE_APP_DATA=|CTRL_PNL_PORT=|FLUXGYM_PORT=|DIFFUSION_PIPE_UI_PORT=|KOHYA_UI_PORT=|TENSORBOARD_PORT=|COMFYUI_PORT=|JUPYTER_PORT=|PATH=|_=)' \
+    | while IFS='=' read -r key val; do
+        printf 'export %s=%q\n' "$key" "$val"
+    done >> "$outfile"
+
+    if ! grep -q 'source /etc/pod_environment' ~/.bashrc 2>/dev/null; then
+        echo 'source /etc/pod_environment' >> ~/.bashrc
+    fi
 }
 
 # Start jupyter lab
@@ -98,8 +146,9 @@ start_jupyter() {
 #                               Main Program                                   #
 # ---------------------------------------------------------------------------- #
 
-echo "Pod Started"
+echo "GPU Pod Started"
 
+configure_caches
 setup_ssh
 start_nginx
 execute_script "/scripts/comfy_setup.sh" "Running ComfyUI setup script..."

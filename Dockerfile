@@ -20,21 +20,8 @@ ENV DEBIAN_FRONTEND=noninteractive
 ARG BASE_RELEASE_VERSION
 ENV BASE_RELEASE_VERSION=${BASE_RELEASE_VERSION}
 
-# Override the default huggingface cache directory.
-ENV HF_HOME="/runpod-volume/.cache/huggingface/"
-ENV HF_DATASETS_CACHE="/runpod-volume/.cache/huggingface/datasets/"
-ENV DEFAULT_HF_METRICS_CACHE="/runpod-volume/.cache/huggingface/metrics/"
-ENV DEFAULT_HF_MODULES_CACHE="/runpod-volume/.cache/huggingface/modules/"
-ENV HUGGINGFACE_HUB_CACHE="/runpod-volume/.cache/huggingface/hub/"
-ENV HUGGINGFACE_ASSETS_CACHE="/runpod-volume/.cache/huggingface/assets/"
-
 # Faster transfer of models from the hub to the container
 ENV HF_HUB_ENABLE_HF_TRANSFER="1"
-
-# Shared python package cache
-ENV VIRTUALENV_OVERRIDE_APP_DATA="/runpod-volume/.cache/virtualenv/"
-ENV PIP_CACHE_DIR="/runpod-volume/.cache/pip/"
-ENV UV_CACHE_DIR="/runpod-volume/.cache/uv/"
 
 # Set Default Python Version
 ENV PYTHON_VERSION="3.12"
@@ -169,7 +156,8 @@ RUN git clone https://github.com/pyenv/pyenv.git /opt/pyenv && \
 
 COPY nginx/runpod /etc/nginx/sites-available/default
 COPY nginx/local /etc/nginx/sites-available/local
-# Create workspace and clone repository
+
+# Create workspace
 RUN mkdir -p /workspace
 
 # Expose ports
@@ -177,10 +165,10 @@ EXPOSE 80
 
 COPY --chmod=755 start.sh /start.sh
 COPY --chmod=755 post_start.sh /post_start.sh
+COPY --chmod=755 gradio_interface.py /gradio_interface.py
+COPY --chmod=755 hfd.sh /hfd.sh
 COPY --chmod=755 workflows/ /workflows
 COPY --chmod=755 control_panel/ /control_panel
 COPY --chmod=755 scripts/ /scripts
-COPY --chmod=755 gradio_interface.py /gradio_interface.py
-COPY --chmod=755 hfd.sh /hfd.sh
 # Set the entrypoint
 ENTRYPOINT ["/start.sh"] 
