@@ -1,15 +1,12 @@
-# Virtual Environment
-venv/
-env/
-.env/
-.venv/
-
-# Python
+# -----------------------------
+# Python / packaging
+# -----------------------------
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
+
 build/
 develop-eggs/
 dist/
@@ -26,14 +23,71 @@ wheels/
 .installed.cfg
 *.egg
 
-# IDE
+# Virtual environments
+venv/
+env/
+.venv/
+.venv*/
+venv*/
+ENV/
+env.bak/
+venv.bak/
+
+# -----------------------------
+# Environment / secrets
+# -----------------------------
+.env
+.env.local
+.env.*.local
+*.envrc
+!.env.example
+
+# -----------------------------
+# Caches / logs / temporary
+# -----------------------------
+.cache/
+.mypy_cache/
+.pytest_cache/
+pip-wheel-metadata/
+.prof/
+*.log
+logs/
+tmp/
+temp/
+
+# Hugging Face / model caches (if created in-repo)
+huggingface/
+hf_cache/
+
+# -----------------------------
+# IDE / editor
+# -----------------------------
 .idea/
 .vscode/
 *.swp
 *.swo
+*.tmp
+*.bak
+*.orig
 
-# Environment variables
-.env
-.env.local 
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
 
+# Windows
+Thumbs.db
+Desktop.ini
+
+# -----------------------------
+# Notebooks / Jupyter artifacts
+# -----------------------------
+.ipynb_checkpoints/
+
+# -----------------------------
+# Project-specific
+# -----------------------------
+
+
+# Local models directory (usually huge, not committed)
 models/
